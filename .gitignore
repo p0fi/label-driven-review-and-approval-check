@@ -16,7 +16,6 @@ Thumbs.db
 
 # -------- Node / TypeScript --------
 node_modules/
-dist/
 lib/
 build/
 tmp/
@@ -56,7 +55,6 @@ pnpm-debug.log*
 # -------- GitHub Action / Build Artifacts --------
 # The action bundles TypeScript with @vercel/ncc into dist/.
 # dist/ is ignored locally; publish built dist/ when tagging a release.
-dist/
 
 # -------- Archives / Packages --------
 *.tgz
