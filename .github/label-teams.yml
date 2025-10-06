@@ -1,0 +1,60 @@
+# Example configuration for the label-driven-review-and-approval-check Action
+#
+# This file maps PR labels to GitHub team slugs.
+# When a configured label is present, the action:
+#   1. Auto-requests a review from that team (unless already requested or dry-run).
+#   2. Requires at least N approvals by members of that team (N = requiredApprovals or an override).
+#   3. Produces a single check result you can mark as "required" in branch protection.
+#
+# Dynamic: to add a new label, just add a new entry under `labels:` (and optionally an override).
+# No workflow changes needed.
+#
+# ---------------------------------------------------------------------------
+# Required section: map label -> team slug (org/team-name minus the org).
+# Team slug examples:
+#   org: acme-corp
+#   team URL: https://github.com/orgs/acme-corp/teams/frontend
+#   team slug: frontend
+#
+# Labels must match configured keys exactly (case-sensitive).
+# ---------------------------------------------------------------------------
+labels:
+  frontend: web-platform
+  backend: api-core
+  billing: finance-eng
+  data: data-science
+  security: appsec
+  # Add more labels here...
+#
+# Global default number of approvals required per label (integer >= 1).
+requiredApprovals: 1
+#
+# Per-label overrides. Only specify values that differ from defaults.
+# If a label is absent here, it inherits the global requiredApprovals.
+overrides:
+  billing:
+    requiredApprovals: 2
+  security:
+    requiredApprovals: 2
+#
+# Ignore draft PRs until they are marked "Ready for review".
+ignoreDraft: true
+#
+# When a configured label is removed, retract any pending team review request.
+# (Does not dismiss existing approvals; those are kept for auditability.)
+retractOnUnlabeled: true
+# Optional: whether to require at least one CODEOWNERS explicit approval even if team approvals pass.
+# (Feature placeholder – not yet used if left commented.)
+# requireCodeowners: false
+#
+# Optional: treat teams with zero members (or inaccessible due to permissions) as auto-fail.
+# If set false, they are skipped with a warning.
+# failOnUnresolvableTeam: true
+#
+# ---------------------------------------------------------------------------
+# Tips:
+# - Make this file live on the default branch so pull_request_target workflows can read it for forked PRs.
+# - Ensure the token used by the action has permission to list team members if your org settings require it.
+# - Mark the action's resulting check as "required" in branch protection to enforce gating.
+# - Use the action input dry-run=true to test without side effects.
+# ---------------------------------------------------------------------------

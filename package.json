@@ -1,0 +1,54 @@
+{
+  "name": "label-driven-review-and-approval-check",
+  "version": "0.1.0",
+  "private": true,
+  "description": "GitHub Action: Label-driven review & approval check. Auto-requests mapped teams for present labels and enforces required approvals (config: .github/label-teams.yml).",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "rimraf dist && tsc && ncc build src/index.ts -o dist",
+    "bundle": "ncc build src/index.ts -o dist",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "lint:fix": "biome check --apply .",
+    "format": "biome format .",
+    "prepare": "npm run build",
+    "watch": "tsc -w",
+    "clean": "rimraf dist",
+    "test": "echo \"(no tests yet)\""
+  },
+  "keywords": [
+    "github-action",
+    "codeowners",
+    "pull-requests",
+    "review",
+    "labels",
+    "approvals",
+    "compliance"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/label-driven-review-and-approval-check.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/label-driven-review-and-approval-check/issues"
+  },
+  "homepage": "https://github.com/your-org/label-driven-review-and-approval-check#readme",
+  "dependencies": {
+    "@actions/core": "^1.11.1",
+    "@actions/github": "^6.0.0",
+    "yaml": "^2.5.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@vercel/ncc": "^0.38.1",
+    "@biomejs/biome": "^1.8.0",
+    "rimraf": "^5.0.5",
+    "typescript": "^5.4.0"
+  }
+}

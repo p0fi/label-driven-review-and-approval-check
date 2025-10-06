@@ -1,0 +1,73 @@
+# -------- General --------
+.DS_Store
+Thumbs.db
+
+# IDE / Editor artifacts
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.iml
+
+# OS / Finder metadata
+._*
+.Spotlight-V100
+.Trashes
+
+# -------- Node / TypeScript --------
+node_modules/
+dist/
+lib/
+build/
+tmp/
+temp/
+.cache/
+.ncc-cache/
+*.tsbuildinfo
+
+# Test & coverage outputs
+coverage/
+.nyc_output/
+reports/
+junit.xml
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Lockfiles
+# NOTE: We intentionally DO NOT ignore lockfiles. Commit one lockfile (e.g. npm's package-lock.json)
+# for deterministic builds of the GitHub Action. If you decide to switch package managers, delete
+# the old lockfile explicitly instead of ignoring it.
+# (No ignore patterns here on purpose.)
+
+# Env files
+.env
+.env.*.local
+.env.local
+.env.test
+.env.development.local
+.env.production.local
+!.env.example
+
+# -------- GitHub Action / Build Artifacts --------
+# The action bundles TypeScript with @vercel/ncc into dist/.
+# dist/ is ignored locally; publish built dist/ when tagging a release.
+dist/
+
+# -------- Archives / Packages --------
+*.tgz
+*.zip
+
+# -------- Misc --------
+*.swp
+*.swo
+*.orig
+*.bak
+
+# -------- Security / Secrets (avoid committing) --------
+# If you generate any extra secret files, add them here.
+secrets.*

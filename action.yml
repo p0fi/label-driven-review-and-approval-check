@@ -1,0 +1,83 @@
+name: 'label-driven-review-and-approval-check'
+description: 'Label-driven review & approval check: auto-request mapped teams for present labels and enforce required team approvals as a single status.'
+author: 'Your Org'
+branding:
+  icon: 'users'
+  color: 'blue'
+
+# This action expects to be run on pull_request_target or pull_request events that include labeling,
+# and optionally on a scheduled / workflow_dispatch run to re-evaluate status.
+# A typical workflow will:
+#  1. Trigger on: pull_request_target types [opened, labeled, unlabeled, synchronize, ready_for_review, reopened]
+#  2. Provide permissions: contents: read, pull-requests: write, checks: write
+#  3. Use this action with a configuration file stored in the repository default branch (for PRs from forks).
+#
+# The configuration file (YAML) defines labels -> teams mapping and optional per-label overrides.
+#
+# Example config (default path: .github/label-teams.yml):
+#   # Required: map of label -> team slug (org/team-name without @)
+#   labels:
+#     frontend: web-platform
+#     backend: api-core
+#     billing: finance-eng
+#   (labelPrefix removed – labels must match exactly as declared in domains)
+#   # Optional: require at least N members of the mapped team (default: 1)
+#   requiredApprovals: 1
+#   # Optional per-label requirement override
+#   overrides:
+#     billing:
+#       requiredApprovals: 2
+#   # Optional: ignore draft PRs until marked ready (default: true)
+#   ignoreDraft: true
+#   # Optional: if true, remove team review requests when label removed (default: true)
+#   retractOnUnlabeled: true
+#   (unknown labels are ignored; only explicitly listed labels are enforced)
+#
+# Behavior:
+#  - When a recognized label is added, the mapped team is requested as reviewers (team review request).
+#  - The action evaluates approvals: for every configured label present, verifies required # of approvals
+#    from members of the corresponding GitHub team (by team slug).
+#  - Produces a single logical check outcome you can mark as "required" in branch protection.
+#  - If any required domain lacks sufficient approvals, the check is marked failure.
+#  - When labels are removed and retractOnUnlabeled=true, pending team review requests for that label are retracted.
+#  - Dynamic: adding a new label entry in config is all that's needed (no code changes).
+#
+# Inputs allow overriding config path, behavior toggles, etc.
+
+inputs:
+  token:
+    description: 'GitHub token with pull-requests: write, checks: write, and read org/team membership (use a PAT or GITHUB_TOKEN with proper permissions).'
+    required: false
+    default: '${{ github.token }}'
+  config-path:
+    description: 'Path (relative to repo root) to YAML configuration.'
+    required: false
+    default: '.github/label-teams.yml'
+  fail-on-missing-config:
+    description: 'If true, fail when the config file cannot be found.'
+    required: false
+    default: 'true'
+  dry-run:
+    description: 'If true, do not mutate (no review requests / no dismissals) - only evaluate.'
+    required: false
+    default: 'false'
+  debug:
+    description: 'Enable verbose debug logging.'
+    required: false
+    default: 'false'
+  summary-mode:
+    description: 'How much detail to include in the check summary: minimal|standard|verbose'
+    required: false
+    default: 'standard'
+
+outputs:
+  status:
+    description: 'Overall evaluation status: success|failure|skipped'
+  required_labels:
+    description: 'Comma-separated list of labels that were enforced.'
+  missing_approvals:
+    description: 'Comma-separated list of labels still lacking required approvals (empty if passing).'
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'

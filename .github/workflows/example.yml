@@ -1,0 +1,94 @@
+name: Example - Label Driven Review and Approval Check
+
+on:
+  # Primary event for enforcing domain approvals. Using pull_request_target ensures
+  # the action + config are loaded from the base (trusted) branch even for fork PRs.
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+      - labeled
+      - unlabeled
+  # Allow a manual re-run / debugging of the evaluation without a PR event.
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Run in dry-run mode (no review request mutations)'
+        required: false
+        default: 'false'
+      summary-mode:
+        description: 'minimal | standard | verbose'
+        required: false
+        default: 'standard'
+
+permissions:
+  contents: read # Needed to read the config file from the base branch
+  pull-requests: write # Needed to request / remove reviewers
+  checks: write # Needed to create the required status check
+
+concurrency:
+  group: label-driven-review-and-approval-check-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  domain-approvals:
+    name: label-driven-review-and-approval-check
+    # Only run for PR-related events or manual dispatch. (pull_request_target already ensures PR context)
+    if: >
+      github.event_name == 'pull_request_target'
+      || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (for local references & debugging)
+        uses: actions/checkout@v4
+        with:
+          # For pull_request_target we explicitly check out the HEAD of the PR if needed
+          # but we normally only need base for config. Here we keep fetch-depth minimal.
+          fetch-depth: 2
+
+      - name: Show triggering context (debug)
+        if: ${{ runner.debug == '1' }}
+        run: |
+          echo "Event: $GITHUB_EVENT_NAME"
+          echo "Action: ${{ github.event.action }}"
+          echo "PR #: ${{ github.event.pull_request.number }}"
+          echo "Labels:"
+          jq -r '.pull_request.labels[]?.name' "$GITHUB_EVENT_PATH" || true
+
+      - name: Run label-driven-review-and-approval-check Action
+        # Using local action path (./) because this is an internal example inside the same repo.
+        # When consuming from a released version elsewhere, use:
+        #   uses: your-org/label-driven-review-and-approval-check@v0.1.0
+        uses: ./
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-path: .github/label-teams.yml
+          fail-on-missing-config: 'true'
+          dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run || 'false' }}
+          summary-mode: ${{ github.event_name == 'workflow_dispatch' && inputs.summary-mode || 'standard' }}
+          debug: ${{ runner.debug == '1' && 'true' || 'false' }}
+
+      - name: Output summary (debug)
+        if: ${{ runner.debug == '1' }}
+        run: |
+          echo "Status: ${{ steps.domain-approvals.outcome }}"
+          echo "Required labels: ${{ steps.domain-approvals.outputs.required_labels }}"
+          echo "Missing approvals: ${{ steps.domain-approvals.outputs.missing_approvals }}"
+
+  # (Optional) A periodic re-evaluation job (disabled by default).
+  # Uncomment the 'schedule' block above and this job if you want a periodic check
+  # independent of PR events (for long-lived open PRs).
+  #
+  # periodic-recheck:
+  #   name: Periodic Domain Recheck
+  #   if: github.event_name == 'schedule'
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: ./
+  #       with:
+  #         token: ${{ secrets.GITHUB_TOKEN }}
+  #         config-path: .github/label-teams.yml
+  #         dry-run: "false"
+  #         summary-mode: "minimal"
