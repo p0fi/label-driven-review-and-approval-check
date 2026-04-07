@@ -29964,7 +29964,6 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
 const yaml_1 = __nccwpck_require__(8815);
-const CHECK_NAME = "label-driven-review-and-approval-check";
 function getBooleanInput(name, defaultValue) {
     const raw = core.getInput(name) || "";
     if (!raw)
@@ -30245,30 +30244,8 @@ async function maybeRetractOnUnlabeled(octokit, config, inputs, prNumber, prLabe
         core.warning(`Failed to remove requested reviewers for label "${removedLabelName}": ${err.message || err}`);
     }
 }
-async function createCheckRun(octokit, headSha, conclusion, summary, text) {
-    if (!headSha) {
-        core.warning("headSha undefined; skipping check run creation.");
-        return;
-    }
-    const { owner, repo } = github.context.repo;
-    try {
-        await octokit.rest.checks.create({
-            owner,
-            repo,
-            name: CHECK_NAME,
-            head_sha: headSha,
-            status: "completed",
-            conclusion,
-            output: {
-                title: CHECK_NAME,
-                summary,
-                text,
-            },
-        });
-    }
-    catch (err) {
-        core.warning(`Unable to create check run: ${err.message || err}`);
-    }
+async function writeSummary(title, body) {
+    await core.summary.addHeading(title, 3).addRaw(body, true).write();
 }
 function formatEvaluations(domains, summaryMode) {
     const lines = [];
@@ -30318,11 +30295,6 @@ async function run() {
     }
     const org = github.context.repo.owner;
     const pull_number = pr.number;
-    const headSha = pr.head?.sha;
-    if (!headSha) {
-        core.setFailed("Could not determine head SHA for PR.");
-        return;
-    }
     const prAuthor = pr.user?.login ?? "";
     let config = null;
     try {
@@ -30335,7 +30307,7 @@ async function run() {
     if (!config) {
         core.info("No configuration available; skipping evaluation.");
         core.setOutput("status", "skipped");
-        await createCheckRun(octokit, headSha, "skipped", "No config", "Configuration file missing or not loaded.");
+        await writeSummary("Skipped", "Configuration file missing or not loaded.");
         return;
     }
     // Extract PR labels early so we can pass them to retraction logic
@@ -30347,7 +30319,7 @@ async function run() {
     if (config.ignoreDraft && pr.draft) {
         const msg = "PR is draft; domain approvals check skipped.";
         core.info(msg);
-        await createCheckRun(octokit, headSha, "skipped", "Draft PR", msg);
+        await writeSummary("Skipped — Draft PR", msg);
         core.setOutput("status", "skipped");
         return;
     }
@@ -30384,7 +30356,7 @@ async function run() {
     if (extraction.domains.length === 0) {
         const msg = "No configured labels present; no approval requirements.";
         core.info(msg);
-        await createCheckRun(octokit, headSha, "success", "No labels", msg);
+        await writeSummary("No configured labels", msg);
         core.setOutput("status", "success");
         core.setOutput("required_labels", "");
         core.setOutput("missing_approvals", "");
@@ -30425,21 +30397,18 @@ async function run() {
     }
     const missing = evaluations.filter((e) => !e.satisfied).map((e) => e.domainKey);
     const anyFailure = missing.length > 0;
-    const summary = anyFailure
-        ? "label-driven-review-and-approval-check: missing required approvals."
-        : "label-driven-review-and-approval-check: all required approvals satisfied.";
+    const summaryTitle = anyFailure ? "Missing required approvals" : "All required approvals satisfied";
     const body = formatEvaluations(evaluations, inputs.summaryMode);
-    // Create check run
-    await createCheckRun(octokit, headSha, anyFailure ? "failure" : "success", summary, body);
+    await writeSummary(summaryTitle, body);
     // Outputs
     core.setOutput("status", anyFailure ? "failure" : "success");
     core.setOutput("required_labels", evaluations.map((e) => e.domainKey).join(","));
     core.setOutput("missing_approvals", missing.join(","));
     if (anyFailure) {
-        core.setFailed(summary);
+        core.setFailed(summaryTitle);
     }
     else {
-        core.info(summary);
+        core.info(summaryTitle);
     }
 }
 run().catch((err) => {

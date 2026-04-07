@@ -53,8 +53,6 @@ interface Inputs {
   summaryMode: SummaryMode
 }
 
-const CHECK_NAME = "label-driven-review-and-approval-check"
-
 function getBooleanInput(name: string, defaultValue: boolean): boolean {
   const raw = core.getInput(name) || ""
   if (!raw) return defaultValue
@@ -378,35 +376,8 @@ async function maybeRetractOnUnlabeled(
   }
 }
 
-async function createCheckRun(
-  octokit: ReturnType<typeof github.getOctokit>,
-  headSha: string | undefined,
-  conclusion: "success" | "failure" | "neutral" | "skipped",
-  summary: string,
-  text: string,
-) {
-  if (!headSha) {
-    core.warning("headSha undefined; skipping check run creation.")
-    return
-  }
-  const { owner, repo } = github.context.repo
-  try {
-    await octokit.rest.checks.create({
-      owner,
-      repo,
-      name: CHECK_NAME,
-      head_sha: headSha,
-      status: "completed",
-      conclusion,
-      output: {
-        title: CHECK_NAME,
-        summary,
-        text,
-      },
-    })
-  } catch (err: any) {
-    core.warning(`Unable to create check run: ${err.message || err}`)
-  }
+async function writeSummary(title: string, body: string) {
+  await core.summary.addHeading(title, 3).addRaw(body, true).write()
 }
 
 function formatEvaluations(domains: EvaluatedDomain[], summaryMode: SummaryMode) {
@@ -464,12 +435,6 @@ async function run(): Promise<void> {
 
   const org = github.context.repo.owner
   const pull_number = pr.number
-  const headSha = pr.head?.sha
-  if (!headSha) {
-    core.setFailed("Could not determine head SHA for PR.")
-    return
-  }
-
   const prAuthor: string = pr.user?.login ?? ""
 
   let config: LabelConfig | null = null
@@ -483,13 +448,7 @@ async function run(): Promise<void> {
   if (!config) {
     core.info("No configuration available; skipping evaluation.")
     core.setOutput("status", "skipped")
-    await createCheckRun(
-      octokit,
-      headSha,
-      "skipped",
-      "No config",
-      "Configuration file missing or not loaded.",
-    )
+    await writeSummary("Skipped", "Configuration file missing or not loaded.")
     return
   }
 
@@ -504,7 +463,7 @@ async function run(): Promise<void> {
   if (config.ignoreDraft && pr.draft) {
     const msg = "PR is draft; domain approvals check skipped."
     core.info(msg)
-    await createCheckRun(octokit, headSha, "skipped", "Draft PR", msg)
+    await writeSummary("Skipped — Draft PR", msg)
     core.setOutput("status", "skipped")
     return
   }
@@ -557,7 +516,7 @@ async function run(): Promise<void> {
   if (extraction.domains.length === 0) {
     const msg = "No configured labels present; no approval requirements."
     core.info(msg)
-    await createCheckRun(octokit, headSha, "success", "No labels", msg)
+    await writeSummary("No configured labels", msg)
     core.setOutput("status", "success")
     core.setOutput("required_labels", "")
     core.setOutput("missing_approvals", "")
@@ -607,13 +566,10 @@ async function run(): Promise<void> {
   const missing = evaluations.filter((e) => !e.satisfied).map((e) => e.domainKey)
   const anyFailure = missing.length > 0
 
-  const summary = anyFailure
-    ? "label-driven-review-and-approval-check: missing required approvals."
-    : "label-driven-review-and-approval-check: all required approvals satisfied."
+  const summaryTitle = anyFailure ? "Missing required approvals" : "All required approvals satisfied"
   const body = formatEvaluations(evaluations, inputs.summaryMode)
 
-  // Create check run
-  await createCheckRun(octokit, headSha, anyFailure ? "failure" : "success", summary, body)
+  await writeSummary(summaryTitle, body)
 
   // Outputs
   core.setOutput("status", anyFailure ? "failure" : "success")
@@ -621,9 +577,9 @@ async function run(): Promise<void> {
   core.setOutput("missing_approvals", missing.join(","))
 
   if (anyFailure) {
-    core.setFailed(summary)
+    core.setFailed(summaryTitle)
   } else {
-    core.info(summary)
+    core.info(summaryTitle)
   }
 }
 
