@@ -1,5 +1,5 @@
 name: 'label-driven-review-and-approval-check'
-description: 'Label-driven review & approval check: auto-request reviews from configured approvers and enforce required approvals as a single status.'
+description: 'Label-driven review & approval check: auto-request reviews from configured approvers and enforce required approvals.'
 author: 'Your Org'
 branding:
   icon: 'users'
