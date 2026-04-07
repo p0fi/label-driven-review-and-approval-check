@@ -1,36 +1,32 @@
-# label-driven-review-and-approval-check GitHub Action
+# label-driven-review-and-approval-check
 
-Automatically:
-1. Auto‑requests reviews from GitHub Teams based on PR labels you configure.
-2. Enforces that each configured label present on the PR has the required number of approvals from members of its mapped team.
-3. Publishes a single check run you can make a required branch protection status.
-4. Lets you add or adjust labels by editing one config file (no workflow/code changes).
+Automatically request reviews from configured approvers based on PR labels and enforce required approvals as a single check run.
 
-> Dynamic by design: add a label → team mapping to the config, push to default branch, start using the label.
+> Add a label → approvers mapping to the config, push to your default branch, and start using the label. No workflow or code changes needed.
 
 ---
 
 ## Why
 
-You have labels that semantically represent ownership areas (e.g. `frontend`, `billing`, `security`). You want:
-- Automatic, consistent team review requests.
-- Gating merges until the owning team(s) approve.
-- A single, easy to protect status instead of many.
-- Config‑as‑code; zero code edits to extend.
+You have labels that represent ownership areas (e.g. `frontend`, `billing`, `security`). You want:
+
+- Automatic, consistent review requests to the right people.
+- Merge gating until the designated approver(s) approve.
+- A single required status check instead of many.
+- Config‑as‑code — zero code edits to extend.
+- No org‑level permissions — `GITHUB_TOKEN` is sufficient.
 
 ---
 
-## Core Features (Label‑Centric)
+## Features
 
-- Exact (case‑sensitive) label → team slug mapping (`labels:` section).
-- Per‑label approval override (`overrides:`).
-- Draft PRs can be skipped until ready.
-- Optional retraction of pending team review requests when a label is removed.
-- One consolidated check: “label-driven-review-and-approval-check”.
+- Exact, case‑sensitive label → approver list mapping.
+- Per‑label approval threshold (`requiredApprovals` inline).
+- Draft PR skipping until marked ready.
+- Automatic retraction of pending review requests when a label is removed.
+- One consolidated check run: `label-driven-review-and-approval-check`.
 - Dry‑run mode for safe rollout.
 - Adjustable summary verbosity: `minimal | standard | verbose`.
-
-(Deprecated concepts removed: prefixes, normalization, unknown label handling flags.)
 
 ---
 
@@ -38,31 +34,29 @@ You have labels that semantically represent ownership areas (e.g. `frontend`, `b
 
 ### 1. Add the configuration file
 
-Create `.github/label-teams.yml` on your default branch:
+Create `.github/label-approvals.yml` on your default branch:
 
 ```yaml
 labels:
-  frontend: web-platform
-  backend: api-core
-  billing: finance-eng
-  security: appsec
-
-# Labels must match these keys exactly (case-sensitive).
-requiredApprovals: 1
-
-overrides:
+  frontend:
+    approvers: [alice, bob, charlie]
+  backend:
+    approvers: [dave, eve, frank]
   billing:
+    approvers: [grace, heidi]
     requiredApprovals: 2
   security:
+    approvers: [ivan, judy]
     requiredApprovals: 2
 
+requiredApprovals: 1
 ignoreDraft: true
 retractOnUnlabeled: true
 ```
 
 ### 2. Add a workflow
 
-Recommended: `pull_request_target` so config + action code run from the trusted base branch (safe for forks).
+Use `pull_request_target` so config and action code run from the trusted base branch (safe for forks).
 
 ```yaml
 # .github/workflows/label-approvals.yml
@@ -85,169 +79,132 @@ jobs:
         uses: your-org/label-driven-review-and-approval-check@v0.1.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          config-path: .github/label-teams.yml
+          config-path: .github/label-approvals.yml
           summary-mode: standard
           dry-run: "false"
           debug: "false"
 ```
 
-### 3. Mark the check as Required
+### 3. Mark the check as required
 
-In Branch Protection, add required status check: `label-driven-review-and-approval-check`.
+In **Settings → Branches → Branch protection**, add required status check: `label-driven-review-and-approval-check`.
 
-### 4. Use It
+### 4. Use it
 
-Apply or remove a configured label (`frontend`, `billing`, etc.). The action:
-- Requests the mapped team as reviewers (if not already requested).
-- Evaluates approvals.
-- Fails until each present configured label meets its approval threshold.
+Apply or remove a configured label. The action will:
+
+- Request reviews from the label's configured approvers (if not already requested).
+- Evaluate approvals — only reviews from listed approvers count.
+- Fail until each present configured label meets its approval threshold.
 
 ---
 
-## Configuration Reference (`.github/label-teams.yml`)
+## Configuration Reference
 
-| Key | Type | Required | Description |
-|-----|------|----------|-------------|
-| `labels` | map<string,string> | Yes | Exact label text → team slug (org inferred from repo owner). |
-| `requiredApprovals` | number | No | Global default approvals per label (default: 1). |
-| `overrides` | map | No | Per‑label override `{ requiredApprovals: N }`. |
-| `ignoreDraft` | boolean | No | Skip draft PRs (`true` default). |
-| `retractOnUnlabeled` | boolean | No | Remove pending team review request when label removed (`true` default). |
+The configuration file (default: `.github/label-approvals.yml`) is always read from the PR's **base branch**.
 
-### Example With Comments
+| Key | Type | Required | Default | Description |
+|-----|------|----------|---------|-------------|
+| `labels` | map | Yes | — | Label name → `{ approvers: string[], requiredApprovals?: number }`. |
+| `requiredApprovals` | number | No | `1` | Global default approvals per label. |
+| `ignoreDraft` | boolean | No | `true` | Skip draft PRs. |
+| `retractOnUnlabeled` | boolean | No | `true` | Retract pending review requests when label removed. |
 
-```yaml
-labels:
-  frontend: web-platform   # <org>/web-platform
-  backend: api-core
-  billing: finance-eng
-  security: appsec
+Each entry under `labels` has:
 
-requiredApprovals: 1
-
-overrides:
-  billing:
-    requiredApprovals: 2
-  security:
-    requiredApprovals: 2
-
-ignoreDraft: true
-retractOnUnlabeled: true
-```
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `approvers` | string[] | Yes | GitHub usernames whose approvals count for this label. |
+| `requiredApprovals` | number | No | Per‑label override (falls back to global `requiredApprovals`). |
 
 ---
 
 ## Inputs
 
-| Input | Default | Purpose |
-|-------|---------|---------|
-| `token` | `${{ github.token }}` | GitHub token (PAT w/ `read:org` if team membership is restricted). |
-| `config-path` | `.github/label-teams.yml` | Path to config (loaded from base ref). |
-| `fail-on-missing-config` | `true` | Fail when config missing (set `false` to skip). |
-| `dry-run` | `false` | Evaluate only; no review request / retraction side-effects. |
+| Input | Default | Description |
+|-------|---------|-------------|
+| `token` | `${{ github.token }}` | GitHub token. `GITHUB_TOKEN` with `pull-requests: write`, `checks: write`, `contents: read` is sufficient. |
+| `config-path` | `.github/label-approvals.yml` | Path to the YAML config (loaded from base ref). |
+| `fail-on-missing-config` | `true` | Fail when the config file is missing. Set `false` to skip gracefully. |
+| `dry-run` | `false` | Evaluate only — no review requests or retractions. |
 | `debug` | `false` | Verbose debug logging. |
-| `summary-mode` | `standard` | `minimal | standard | verbose`. |
+| `summary-mode` | `standard` | Detail level in the check summary: `minimal`, `standard`, or `verbose`. |
 
 ## Outputs
 
 | Output | Description |
 |--------|-------------|
-| `status` | `success` | `failure` | `skipped`. |
-| `required_labels` | Comma-separated list of enforced labels. |
-| `missing_approvals` | Comma-separated list of labels still below threshold. |
+| `status` | `success`, `failure`, or `skipped`. |
+| `required_labels` | Comma‑separated list of enforced labels. |
+| `missing_approvals` | Comma‑separated list of labels still below threshold (empty if passing). |
 
 ---
 
 ## Approval Logic
 
 1. Collect labels on the PR.
-2. Select only labels that exactly match keys in `labels`.
+2. Keep only labels that exactly match keys in `labels`.
 3. For each matched label:
-   - Determine required approvals (override > global > 1).
-   - Fetch team members.
-   - Count unique users whose latest review state is `APPROVED` and who are on that team.
-4. If any matched label is below its requirement → failure; otherwise success.
-5. Produces a single check run summarizing per-label status.
-
-No fuzzy matching, no prefixes, no normalization.
-
----
-
-## Team Membership Resolution
-
-- Org inferred from repository owner.
-- Uses REST API to list team members.
-- If membership cannot be listed (permissions), team counts as 0 and a warning is logged (you may supply a PAT with `read:org`).
+   - Determine required approvals (per‑label `requiredApprovals` → global `requiredApprovals` → `1`).
+   - Count unique users whose **latest** review is `APPROVED` and who appear in that label's `approvers` list.
+4. If any label is below its threshold → **failure**; otherwise **success**.
+5. A single check run is published summarizing per‑label status.
 
 ---
 
 ## Events & Timing
 
-Recommended triggers:
-`opened`, `reopened`, `ready_for_review`, `synchronize`, `labeled`, `unlabeled`.
+Recommended `pull_request_target` triggers:
 
-You may add `workflow_dispatch` or a cron re-check for long‑lived PRs.
+`opened`, `reopened`, `ready_for_review`, `synchronize`, `labeled`, `unlabeled`
+
+You may also add `workflow_dispatch` or a cron schedule to periodically re‑evaluate long‑lived PRs.
 
 ---
 
 ## Draft PR Handling
 
-If `ignoreDraft: true`, draft PRs produce a `skipped` check until marked ready.
+When `ignoreDraft: true` (the default), draft PRs produce a `skipped` check. The check runs normally once the PR is marked ready for review.
 
 ---
 
 ## Retraction Behavior
 
-With `retractOnUnlabeled: true` removing a configured label:
-- Attempts to remove that team’s pending review request.
-- Does not dismiss existing approvals (historical record stays intact).
+When `retractOnUnlabeled: true` (the default) and a configured label is removed:
+
+- The action removes pending review requests for that label's approvers.
+- Existing approvals are **not** dismissed (the historical record stays intact).
 
 ---
 
 ## Dry Run Mode
 
-Set `dry-run: "true"`:
-- Evaluates & emits check.
-- Skips requesting/removing reviewers.
-- Useful during rollout or config experimentation.
+Set `dry-run: "true"` to:
+
+- Evaluate approval status and emit the check run as normal.
+- Skip all mutations (no review requests, no retractions).
+- Useful during initial rollout or config experimentation.
 
 ---
 
 ## Example
 
-Config excerpt:
-
 ```yaml
 labels:
-  frontend: web-platform
-  billing: finance-eng
-requiredApprovals: 1
-overrides:
+  frontend:
+    approvers: [alice, bob]
   billing:
+    approvers: [carol, dave, eve]
     requiredApprovals: 2
+requiredApprovals: 1
 ```
 
-PR Labels & Approvals:
+| Label | Approved by | Required | Status |
+|-------|-------------|----------|--------|
+| frontend | alice | 1 | ✅ |
+| billing | dave | 2 | ❌ (needs one more from `[carol, dave, eve]`) |
 
-| Label | Approvers (team members) | Required | Status |
-|-------|--------------------------|----------|--------|
-| frontend | alice                  | 1        | ✅ |
-| billing  | bob                    | 2        | ❌ (needs one more) |
-
-Check result: failure, `missing_approvals=billing`.
-
----
-
-## Local Development
-
-```bash
-git clone https://github.com/your-org/label-driven-review-and-approval-check
-cd label-driven-review-and-approval-check
-npm install
-npm run build
-```
-
-Commit the generated `dist/` when tagging a release.
+Check result: **failure**, `missing_approvals=billing`.
 
 ---
 
@@ -255,43 +212,18 @@ Commit the generated `dist/` when tagging a release.
 
 | Symptom | Cause | Remedy |
 |---------|-------|--------|
-| Approvals not counted | Token cannot list team members | Use PAT with `read:org`. |
-| Always skipped | PR is draft & `ignoreDraft: true` | Mark ready or set `ignoreDraft: false`. |
-| Review not auto-requested | Already requested or slug mismatch | Verify exact team slug (URL slug, not display name). |
-| 422 on requestReviewers | Duplicate request | Benign; already requested. |
+| Approver not counted | User not in `approvers` list for that label | Add username to the label's `approvers` array. |
+| Always skipped | PR is draft and `ignoreDraft: true` | Mark the PR ready or set `ignoreDraft: false`. |
+| Review not auto‑requested | Already requested, or username mismatch | Verify the exact GitHub username (case‑sensitive). |
+| 422 on review request | Duplicate request | Benign — the user is already requested. |
 
 ---
 
 ## Limitations
 
-- Only latest review per user counts (GitHub semantics).
-- No dismissal management beyond GitHub core.
-- One team per label (multi-team per label not yet implemented).
-- No auto-labeling; integrate with other automation if needed.
-
----
-
-## Roadmap Ideas
-
-- Multi-team or fallback teams per label.
-- Optional CODEOWNERS confirmation gating.
-- Comment reminders for pending approvals.
-- Rate-limiting and caching enhancements.
-
----
-
-## Contributing
-
-1. Fork & branch.
-2. Make changes in `src/`, run `npm run build`.
-3. Commit `src`, `dist`, and metadata.
-4. Open a PR.
-
----
-
-## License
-
-MIT
+- Only the latest review per user counts (GitHub semantics).
+- No dismissal management beyond GitHub's built‑in behavior.
+- No auto‑labeling — integrate with other automation if needed.
 
 ---
 
@@ -299,14 +231,20 @@ MIT
 
 | Task | How |
 |------|-----|
-| Add new label requirement | Add to `labels:` map (optional override) |
-| Increase approvals for a label | Add/edit entry in `overrides:` |
-| Skip drafts? | `ignoreDraft: true` (default) |
+| Add a new label requirement | Add an entry to `labels:` with an `approvers` list |
+| Increase approvals for a label | Set `requiredApprovals` on that label entry |
+| Skip draft PRs | `ignoreDraft: true` (default) |
 | Stop skipping drafts | `ignoreDraft: false` |
-| Test safely | `dry-run: true` |
-| Get concise summary | `summary-mode: minimal` |
+| Test safely | `dry-run: "true"` |
+| Concise summary | `summary-mode: minimal` |
 | Detailed diagnostics | `summary-mode: verbose` |
 
 ---
 
-Happy shipping – with clear, enforced label‑based ownership!
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+MIT
