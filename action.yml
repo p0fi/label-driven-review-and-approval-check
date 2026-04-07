@@ -1,5 +1,5 @@
 name: 'label-driven-review-and-approval-check'
-description: 'Label-driven review & approval check: auto-request mapped teams for present labels and enforce required team approvals as a single status.'
+description: 'Label-driven review & approval check: auto-request reviews from configured approvers for present labels and enforce required approvals as a single status.'
 author: 'Your Org'
 branding:
   icon: 'users'
@@ -12,47 +12,48 @@ branding:
 #  2. Provide permissions: contents: read, pull-requests: write, checks: write
 #  3. Use this action with a configuration file stored in the repository default branch (for PRs from forks).
 #
-# The configuration file (YAML) defines labels -> teams mapping and optional per-label overrides.
+# The configuration file (YAML) defines labels -> approvers mapping and optional per-label thresholds.
 #
-# Example config (default path: .github/label-teams.yml):
-#   # Required: map of label -> team slug (org/team-name without @)
+# Example config (default path: .github/label-approvals.yml):
+#   # Required: map of label -> { approvers: [username, ...], requiredApprovals?: N }
 #   labels:
-#     frontend: web-platform
-#     backend: api-core
-#     billing: finance-eng
-#   (labelPrefix removed – labels must match exactly as declared in domains)
-#   # Optional: require at least N members of the mapped team (default: 1)
-#   requiredApprovals: 1
-#   # Optional per-label requirement override
-#   overrides:
+#     frontend:
+#       approvers: [alice, bob, charlie]
+#     backend:
+#       approvers: [dave, eve, frank]
 #     billing:
+#       approvers: [grace, heidi]
 #       requiredApprovals: 2
+#   # Labels must match exactly as declared (case-sensitive).
+#   # Optional: require at least N approvals per label globally (default: 1)
+#   requiredApprovals: 1
 #   # Optional: ignore draft PRs until marked ready (default: true)
 #   ignoreDraft: true
-#   # Optional: if true, remove team review requests when label removed (default: true)
+#   # Optional: if true, retract pending review requests when label removed (default: true)
 #   retractOnUnlabeled: true
 #   (unknown labels are ignored; only explicitly listed labels are enforced)
 #
 # Behavior:
-#  - When a recognized label is added, the mapped team is requested as reviewers (team review request).
+#  - When a recognized label is added, the configured approvers are requested as reviewers.
 #  - The action evaluates approvals: for every configured label present, verifies required # of approvals
-#    from members of the corresponding GitHub team (by team slug).
+#    from users listed in that label's approvers array.
 #  - Produces a single logical check outcome you can mark as "required" in branch protection.
-#  - If any required domain lacks sufficient approvals, the check is marked failure.
-#  - When labels are removed and retractOnUnlabeled=true, pending team review requests for that label are retracted.
+#  - If any required label lacks sufficient approvals, the check is marked failure.
+#  - When labels are removed and retractOnUnlabeled=true, pending review requests for that label's approvers are retracted.
 #  - Dynamic: adding a new label entry in config is all that's needed (no code changes).
 #
-# Inputs allow overriding config path, behavior toggles, etc.
+# Token: GITHUB_TOKEN with pull-requests: write, checks: write, and contents: read is sufficient.
+# No org-level permissions or PAT required.
 
 inputs:
   token:
-    description: 'GitHub token with pull-requests: write, checks: write, and read org/team membership (use a PAT or GITHUB_TOKEN with proper permissions).'
+    description: 'GitHub token with pull-requests: write, checks: write, and contents: read. The default GITHUB_TOKEN is sufficient.'
     required: false
     default: '${{ github.token }}'
   config-path:
     description: 'Path (relative to repo root) to YAML configuration.'
     required: false
-    default: '.github/label-teams.yml'
+    default: '.github/label-approvals.yml'
   fail-on-missing-config:
     description: 'If true, fail when the config file cannot be found.'
     required: false

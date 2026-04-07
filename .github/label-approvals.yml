@@ -1,0 +1,27 @@
+# Label-driven review and approval check configuration
+#
+# Each label maps to a list of approved reviewers and an optional per-label
+# approval threshold. Only users listed under `approvers` count toward the
+# required number of approvals for that label.
+
+labels:
+  frontend:
+    approvers: [alice, bob, charlie]
+  backend:
+    approvers: [dave, eve, frank]
+  billing:
+    approvers: [grace, heidi]
+    requiredApprovals: 2
+  security:
+    approvers: [ivan, judy]
+    requiredApprovals: 2
+
+# Global default approvals required per label (integer >= 1).
+requiredApprovals: 1
+
+# Ignore draft PRs until marked ready for review.
+ignoreDraft: true
+
+# When a configured label is removed, retract pending review requests
+# for that label's approvers (does not dismiss existing approvals).
+retractOnUnlabeled: true

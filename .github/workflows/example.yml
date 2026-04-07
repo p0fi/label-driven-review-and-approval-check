@@ -1,7 +1,7 @@
 name: Example - Label Driven Review and Approval Check
 
 on:
-  # Primary event for enforcing domain approvals. Using pull_request_target ensures
+  # Primary event for enforcing approvals. Using pull_request_target ensures
   # the action + config are loaded from the base (trusted) branch even for fork PRs.
   pull_request_target:
     types:
@@ -61,10 +61,12 @@ jobs:
         # Using local action path (./) because this is an internal example inside the same repo.
         # When consuming from a released version elsewhere, use:
         #   uses: your-org/label-driven-review-and-approval-check@v0.1.0
+        #
+        # GITHUB_TOKEN is sufficient — no PAT or org-level permissions needed.
         uses: ./
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          config-path: .github/label-teams.yml
+          config-path: .github/label-approvals.yml
           fail-on-missing-config: 'true'
           dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run || 'false' }}
           summary-mode: ${{ github.event_name == 'workflow_dispatch' && inputs.summary-mode || 'standard' }}
@@ -89,6 +91,6 @@ jobs:
   #     - uses: ./
   #       with:
   #         token: ${{ secrets.GITHUB_TOKEN }}
-  #         config-path: .github/label-teams.yml
+  #         config-path: .github/label-approvals.yml
   #         dry-run: "false"
   #         summary-mode: "minimal"
