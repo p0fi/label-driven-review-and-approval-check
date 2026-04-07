@@ -87,7 +87,7 @@ jobs:
 
 ### 3. Mark the check as required
 
-In **Settings → Branches → Branch protection**, add required status check: `label-driven-review-and-approval-check`.
+In **Settings → Rules → Rulesets**, create or edit a ruleset targeting your default branch. Add a **Require status checks to pass** rule and include `label-driven-review-and-approval-check` as a required check.
 
 ### 4. Use it
 
