@@ -2,7 +2,7 @@
 
 ## Project overview
 
-GitHub Action (TypeScript, Node 20) that maps PR labels to configured approvers, auto-requests reviews, and enforces required approvals as a single check run.
+GitHub Action (TypeScript, Node 20) that maps PR labels to configured approvers, auto-requests reviews, and enforces required approvals by failing the workflow job when approvals are missing.
 
 ## Build & run
 
@@ -36,7 +36,7 @@ Always run `npm run build` after changing `src/`. The bundled `dist/` must be co
 
 - Labels are matched **exactly, case-sensitive** against keys in the config `labels:` map. No prefix matching or normalization.
 - Config is always read from the PR's **base branch** (not the PR head) for security with fork PRs.
-- The action produces a single check run named `label-driven-review-and-approval-check`.
+- The action fails the job (`core.setFailed`) when approvals are missing and writes a job summary with per-label status. The job's own check run serves as the required status check — no separate check run is created via the Checks API.
 - Only the **latest review per user** counts (by `submitted_at` timestamp).
 - Approvers are defined statically in config — no org-level API calls required.
 - `dry-run` mode must never mutate state (no review requests, no retractions).

@@ -9,7 +9,7 @@ branding:
 # and optionally on a scheduled / workflow_dispatch run to re-evaluate status.
 # A typical workflow will:
 #  1. Trigger on: pull_request_target types [opened, labeled, unlabeled, synchronize, ready_for_review, reopened]
-#  2. Provide permissions: contents: read, pull-requests: write, checks: write
+#  2. Provide permissions: contents: read, pull-requests: write
 #  3. Use this action with a configuration file stored in the repository default branch (for PRs from forks).
 #
 # The configuration file (YAML) defines labels -> approvers mapping and optional per-label thresholds.
@@ -37,17 +37,18 @@ branding:
 #  - When a recognized label is added, the configured approvers are requested as reviewers.
 #  - The action evaluates approvals: for every configured label present, verifies required # of approvals
 #    from users listed in that label's approvers array.
-#  - Produces a single logical check outcome you can mark as "required" in branch protection.
-#  - If any required label lacks sufficient approvals, the check is marked failure.
+#  - Fails the workflow job when any required label lacks sufficient approvals. The job's own
+#    check run can be marked as "required" in branch protection / rulesets.
+#  - Writes a job summary with per-label approval status.
 #  - When labels are removed and retractOnUnlabeled=true, pending review requests for that label's approvers are retracted.
 #  - Dynamic: adding a new label entry in config is all that's needed (no code changes).
 #
-# Token: GITHUB_TOKEN with pull-requests: write, checks: write, and contents: read is sufficient.
+# Token: GITHUB_TOKEN with pull-requests: write and contents: read is sufficient.
 # No org-level permissions or PAT required.
 
 inputs:
   token:
-    description: 'GitHub token with pull-requests: write, checks: write, and contents: read. The default GITHUB_TOKEN is sufficient.'
+    description: 'GitHub token with pull-requests: write and contents: read. The default GITHUB_TOKEN is sufficient.'
     required: false
     default: '${{ github.token }}'
   config-path:

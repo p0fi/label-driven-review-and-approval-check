@@ -26,7 +26,6 @@ on:
 permissions:
   contents: read # Needed to read the config file from the base branch
   pull-requests: write # Needed to request / remove reviewers
-  checks: write # Needed to create the required status check
 
 concurrency:
   group: label-driven-review-and-approval-check-${{ github.event.pull_request.number || github.ref }}

@@ -1,6 +1,6 @@
 # label-driven-review-and-approval-check
 
-Automatically request reviews from configured approvers based on PR labels and enforce required approvals as a single check run.
+Automatically request reviews from configured approvers based on PR labels and enforce required approvals by failing the workflow job when thresholds are not met.
 
 > Add a label → approvers mapping to the config, push to your default branch, and start using the label. No workflow or code changes needed.
 
@@ -12,7 +12,7 @@ You have labels that represent ownership areas (e.g. `frontend`, `billing`, `sec
 
 - Automatic, consistent review requests to the right people.
 - Merge gating until the designated approver(s) approve.
-- A single required status check instead of many.
+- A single required status check (the job itself) instead of many.
 - Config‑as‑code — zero code edits to extend.
 - No org‑level permissions — `GITHUB_TOKEN` is sufficient.
 
@@ -24,7 +24,7 @@ You have labels that represent ownership areas (e.g. `frontend`, `billing`, `sec
 - Per‑label approval threshold (`requiredApprovals` inline).
 - Draft PR skipping until marked ready.
 - Automatic retraction of pending review requests when a label is removed.
-- One consolidated check run: `label-driven-review-and-approval-check`.
+- Fails the workflow job when approvals are missing — use the job as a required status check.
 - Dry‑run mode for safe rollout.
 - Adjustable summary verbosity: `minimal | standard | verbose`.
 
@@ -69,7 +69,6 @@ on:
 permissions:
   contents: read
   pull-requests: write
-  checks: write
 
 jobs:
   approvals:
@@ -123,7 +122,7 @@ Each entry under `labels` has:
 
 | Input | Default | Description |
 |-------|---------|-------------|
-| `token` | `${{ github.token }}` | GitHub token. `GITHUB_TOKEN` with `pull-requests: write`, `checks: write`, `contents: read` is sufficient. |
+| `token` | `${{ github.token }}` | GitHub token. `GITHUB_TOKEN` with `pull-requests: write` and `contents: read` is sufficient. |
 | `config-path` | `.github/label-approvals.yml` | Path to the YAML config (loaded from base ref). |
 | `fail-on-missing-config` | `true` | Fail when the config file is missing. Set `false` to skip gracefully. |
 | `dry-run` | `false` | Evaluate only — no review requests or retractions. |
@@ -148,7 +147,7 @@ Each entry under `labels` has:
    - Determine required approvals (per‑label `requiredApprovals` → global `requiredApprovals` → `1`).
    - Count unique users whose **latest** review is `APPROVED` and who appear in that label's `approvers` list.
 4. If any label is below its threshold → **failure**; otherwise **success**.
-5. A single check run is published summarizing per‑label status.
+5. The action writes a job summary with per‑label status and fails the job (`core.setFailed`) when approvals are missing. The job's own check run serves as the required status check.
 
 ---
 
@@ -181,7 +180,7 @@ When `retractOnUnlabeled: true` (the default) and a configured label is removed:
 
 Set `dry-run: "true"` to:
 
-- Evaluate approval status and emit the check run as normal.
+- Evaluate approval status and write a job summary as normal.
 - Skip all mutations (no review requests, no retractions).
 - Useful during initial rollout or config experimentation.
 
