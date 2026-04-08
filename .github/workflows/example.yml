@@ -11,6 +11,12 @@ on:
       - ready_for_review
       - labeled
       - unlabeled
+  # Re-evaluate approval status whenever a review is submitted, edited, or dismissed.
+  pull_request_review:
+    types:
+      - submitted
+      - edited
+      - dismissed
   # Allow a manual re-run / debugging of the evaluation without a PR event.
   workflow_dispatch:
     inputs:
@@ -37,6 +43,7 @@ jobs:
     # Only run for PR-related events or manual dispatch. (pull_request_target already ensures PR context)
     if: >
       github.event_name == 'pull_request_target'
+      || github.event_name == 'pull_request_review'
       || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:

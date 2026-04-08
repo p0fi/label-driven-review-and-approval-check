@@ -65,6 +65,8 @@ name: label-driven-review-and-approval-check
 on:
   pull_request_target:
     types: [opened, reopened, synchronize, ready_for_review, labeled, unlabeled]
+  pull_request_review:
+    types: [submitted, edited, dismissed]
 
 permissions:
   contents: read
@@ -156,6 +158,10 @@ Each entry under `labels` has:
 Recommended `pull_request_target` triggers:
 
 `opened`, `reopened`, `ready_for_review`, `synchronize`, `labeled`, `unlabeled`
+
+Also add `pull_request_review` to re‑evaluate when reviews are submitted, edited, or dismissed:
+
+`submitted`, `edited`, `dismissed`
 
 You may also add `workflow_dispatch` or a cron schedule to periodically re‑evaluate long‑lived PRs.
 
